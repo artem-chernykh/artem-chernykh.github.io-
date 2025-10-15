@@ -21,32 +21,25 @@ I am more than happy to send you a service recommendation which is related to th
 Isn't that a good starting point for successful collaboration? If my powers are too limited related to your inquiry, allow my human colleagues to contact you. We would therefore need your contact information like your Email and phone number. Thank you.</h2>
     <p>Click the chat button to start a conversation with our support team.</p>
 
-    <script type="text/javascript">
-        function initEmbeddedMessaging() {
-		    try {
-    			embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
-    
-    			embeddedservice_bootstrap.init(
-    				'00D9Q00000FnzBa',
-    				'Agentforce_Messaging',
-    				'https://flender--test.sandbox.my.site.com/ESWAgentforceMessaging1759163126877',
-    				{
-    					scrt2URL: 'https://flender--test.sandbox.my.salesforce-scrt.com'
-    				}
-    			);
-    		} catch (err) {
-    			console.error('Error loading Embedded Messaging: ', err);
-    		}
-    	};
+ <script type='text/javascript'>
+	function initEmbeddedMessaging() {
+		try {
+			embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
 
-        window.onload = function () {
-            console.log("Loading Agentforce Chat...");
-            var script = document.createElement("script");
-            script.type = "text/javascript";
-            script.src = "https://flender--test.sandbox.my.site.com/ESWAgentforceMessaging1759163126877/assets/js/bootstrap.min.js";
-            script.onload = initEmbeddedMessaging;
-            document.body.appendChild(script);
-        };
-    </script>    
+			embeddedservice_bootstrap.init(
+				'00D9Q00000FnzBa',
+				'Agentforce_Messaging',
+				'https://flender--test.sandbox.my.site.com/ESWAgentforceMessaging1759163126877',
+				{
+					scrt2URL: 'https://flender--test.sandbox.my.salesforce-scrt.com'
+				}
+			);
+		} catch (err) {
+			console.error('Error loading Embedded Messaging: ', err);
+		}
+	};
+</script>
+<script type='text/javascript' src='https://flender--test.sandbox.my.site.com/ESWAgentforceMessaging1759163126877/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+ 
 </body>
 </html>
