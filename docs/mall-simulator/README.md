@@ -17,13 +17,14 @@ decision. Those values must be resolved by a trusted server and Salesforce.
 
 | File | Purpose |
 | --- | --- |
-| `index.html` / `app.js` | Parent Mall simulator and payload viewer |
-| `agent-host.html` / `agent-host.js` | Isolated receiver and optional Enhanced Web Chat adapter |
+| `index.html` / `app.js` | Mall simulator, payload validation and direct Enhanced Web Chat adapter |
+| `messaging-lifecycle.js` | Deterministic clear, fresh-ready, pre-chat and launch sequencing |
+| `agent-host.html` / `agent-host.js` | Unreferenced historical iframe implementation; not part of the current runtime |
 | `demo-scenarios.js` | Fixed fake scenario and token allowlist |
 | `protocol.js` | Envelope creation and deterministic validation |
 | `salesforce-config.js` | Only environment-specific Salesforce configuration file |
 | `styles.css` | Shared responsive visual design |
-| `tests/protocol.test.js` | Protocol security regression tests |
+| `tests/*.test.js` | Protocol, direct-embed and session lifecycle regression tests |
 
 ## Run locally
 
@@ -59,7 +60,7 @@ The browser labels describe the intended test result, but those labels are not
 part of the transmitted event. The opaque token is also not a credential; its
 fixed values are visible in this public static code.
 
-## Browser event contract
+## Browser context contract
 
 Valid messages contain exactly these fields:
 
@@ -74,10 +75,10 @@ Valid messages contain exactly these fields:
 }
 ```
 
-The child receiver checks:
+The page validates each locally generated demonstration envelope before any
+Salesforce API call. It checks:
 
-- exact `event.origin`;
-- exact `event.source === window.parent`;
+- the exact current page origin and source window;
 - exact schema with no extra fields;
 - protocol type and version;
 - UUID and timestamp format;
@@ -85,11 +86,15 @@ The child receiver checks:
 - fixed scenario membership; and
 - the matching fixed demo token.
 
-It also rejects an event ID already processed in that host instance.
-The parent does not enable scenario submission until Salesforce emits
-`onEmbeddedMessagingReady`. One non-logout scenario is allowed per conversation;
-changing or resetting a scenario first calls `clearSession` and starts with a
-fresh chat boundary.
+It also rejects an event ID already processed in that page instance. Scenario
+submission stays disabled until Salesforce emits both
+`onEmbeddedMessagingReady` and `onEmbeddedMessagingButtonCreated`. The first
+scenario on a fresh page applies hidden pre-chat and then calls `launchChat`.
+Every later scenario first calls `clearSession`, waits for the next Ready event,
+then applies hidden pre-chat and launches the new chat. This prevents an old
+website conversation or context value from being reused. A resolved
+`launchChat` call means the client opened; the later Conversation Started event
+is recorded as telemetry because a user may spend time in visible pre-chat.
 
 ## Current IBM development sandbox connection
 
@@ -97,15 +102,16 @@ fresh chat boundary.
 development sandbox. Enhanced Web Chat and the sandbox scenario ingress are
 enabled. The trusted production bridge remains explicitly disabled.
 
-After a browser event passes the exact-origin, schema, freshness, replay and
-fixed-token checks, the host passes only `scenarioId` through hidden pre-chat as
+After an envelope passes the page, schema, freshness, replay and fixed-token
+checks, the direct adapter passes only `scenarioId` through hidden pre-chat as
 `MallSimulationScenarioId`. The inbound Routing Flow stores that key on the
 Messaging Session and routes to the isolated **ALFRED 2.0 Mall Demo** agent.
 That agent resolves identity, roles, language and Quote authorization from
 sandbox-locked Salesforce Custom Metadata.
 
-Submitting an accepted scenario automatically opens the Embedded Web Chat in
-this page. Enter the test utterances there. Agentforce Builder Preview is an
+Submitting an accepted scenario automatically opens the published Salesforce
+chat directly on this page in floating Web v1 mode. Enter the test utterances
+there. Agentforce Builder Preview is an
 independent preview session: it has no website Messaging Session and cannot
 inherit this simulator's hidden pre-chat values.
 
@@ -116,7 +122,9 @@ and replay its fixed keys, so it must never be interpreted as real login proof.
 
 Before production integration:
 
-1. Create or select an Enhanced Web Chat v2 deployment for the sandbox.
+1. Create or select an Enhanced Web Chat deployment for the sandbox. The current
+   demo uses Web v1 floating mode. Upgrade deliberately to Web v2 before enabling
+   the v2-only inline display mode.
 2. Add the exact GitHub Pages origin to the deployment's approved web origins.
    Add `artem-chernykh.github.io` to the generated ESW site's **Trusted Domains
    for Inline Frames** and `https://artem-chernykh.github.io` to Salesforce
@@ -136,7 +144,7 @@ Before production integration:
    and signature before populating them.
 7. Republish the Enhanced Web Chat deployment after configuration changes.
 
-The bridge response contract expected by `agent-host.js` is:
+The bridge response contract expected by `app.js` is:
 
 ```json
 {
@@ -172,8 +180,9 @@ GitHub Actions is also not a request/response runtime backend.
 
 ## Production handover
 
-The final Flender Mall integration should keep the same versioned browser event,
-but replace the fixed `scenarioId` and fake token with a short-lived token issued
-from the authenticated Mall backend. The preferred `postMessage` approach lets
-the Mall shell notify the chat adapter about both login and logout. Use an exact
-target origin; never use `"*"`.
+The final Flender Mall integration should replace the fixed `scenarioId` and fake
+token with a short-lived token issued by the authenticated Mall backend. If the
+Mall shell and chat adapter are separate windows or frames, use a versioned
+`postMessage` event with an exact target origin, never `"*"`. If they run in the
+same page, pass the opaque token directly to the adapter and retain the same
+server-side trust resolution.

@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="referrer" content="no-referrer" />
+    <meta name="referrer" content="origin" />
     <meta
       name="description"
       content="A sandbox-only Flender Mall context simulator for ALFRED 2.0 integration testing."
     />
     <title>ALFRED 2.0 | Mall Context Simulator</title>
-    <link rel="stylesheet" href="styles.css?v=20260805.3" />
+    <link rel="stylesheet" href="styles.css?v=20260805.5" />
   </head>
   <body>
     <header class="site-header">
@@ -30,7 +30,7 @@
           <h1 id="page-title">Test login, role and logout journeys safely.</h1>
           <p class="hero-copy">
             Choose a fixed fake scenario, inspect the exact browser message, and
-            send it to the isolated Agentforce host. This page never sends customer
+            start a directly embedded Agentforce conversation. This page never sends customer
             data, Salesforce credentials, trust flags or authorization decisions.
           </p>
         </div>
@@ -66,7 +66,7 @@
               Start scenario and open chat
             </button>
             <button id="reload-button" class="button secondary" type="button">
-              Reset Agent host
+              Reset Agentforce chat
             </button>
           </div>
 
@@ -107,24 +107,61 @@
           <div class="panel-heading">
             <div>
               <p class="step-label">Step 3</p>
-              <h2>Agentforce host</h2>
+              <h2>Direct Agentforce chat</h2>
             </div>
             <span id="host-status" class="status-chip waiting">Loading</span>
           </div>
           <aside class="session-boundary-note" role="note">
-            <strong>Use the Agentforce chat opened inside this page.</strong>
+            <strong>Use the Salesforce Agentforce chat opened on this page.</strong>
             <p>
               Do not switch to Agentforce Builder Preview. Preview starts a separate
               session and cannot inherit this website's hidden pre-chat context.
             </p>
           </aside>
-          <iframe
-            id="agent-host"
-            class="agent-frame"
-            src="agent-host.html?v=20260805.3"
-            title="Isolated Agentforce host"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          ></iframe>
+          <div class="direct-host-shell">
+            <header class="host-header">
+              <div class="host-avatar" aria-hidden="true">A</div>
+              <div>
+                <p class="eyebrow">Direct external-site deployment</p>
+                <h3>ALFRED Agentforce chat</h3>
+              </div>
+              <span id="receiver-status" class="status-chip waiting">Starting</span>
+            </header>
+
+            <section class="host-message" aria-live="polite">
+              <strong id="receiver-title">Connecting to Salesforce</strong>
+              <p id="receiver-message">
+                The Start button becomes available after Enhanced Web Chat is ready.
+              </p>
+            </section>
+
+            <section class="validation-grid" aria-label="Validation state">
+              <div>
+                <span>Local scenario validation</span>
+                <strong id="origin-state">Pending</strong>
+              </div>
+              <div>
+                <span>Schema and freshness</span>
+                <strong id="schema-state">Pending</strong>
+              </div>
+              <div>
+                <span>Salesforce adapter</span>
+                <strong id="adapter-state">Initializing</strong>
+              </div>
+            </section>
+
+            <details class="host-details">
+              <summary>Accepted envelope</summary>
+              <pre id="accepted-envelope" class="mini-code">No event accepted.</pre>
+            </details>
+
+            <section class="host-log-section" aria-labelledby="receiver-log-title">
+              <h3 id="receiver-log-title">Salesforce lifecycle</h3>
+              <ol id="receiver-log" class="event-log compact" aria-live="polite"></ol>
+            </section>
+
+            <div id="salesforce-mount" aria-label="Salesforce Enhanced Web Chat runtime"></div>
+          </div>
         </article>
 
         <article class="panel log-panel">
@@ -149,6 +186,6 @@
       </p>
     </footer>
 
-    <script type="module" src="app.js?v=20260805.3"></script>
+    <script type="module" src="app.js?v=20260805.5"></script>
   </body>
 </html>

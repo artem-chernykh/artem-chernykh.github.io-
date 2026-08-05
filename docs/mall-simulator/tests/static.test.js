@@ -34,50 +34,50 @@ test("enables only the sandbox scenario ingress and keeps the trusted bridge dis
   assert.doesNotMatch(config, /clientSecret|privateKey|password\s*:/i);
 });
 
-test("never uses a wildcard postMessage target origin", async () => {
-  const files = await Promise.all(
-    ["app.js", "agent-host.js"].map((name) =>
-      readFile(resolve(simulatorDirectory, name), "utf8")
-    )
-  );
-  for (const source of files) {
-    assert.doesNotMatch(source, /postMessage\s*\([^)]*,\s*["']\*["']/s);
-  }
+test("direct parent integration does not use postMessage plumbing", async () => {
+  const source = await readFile(resolve(simulatorDirectory, "app.js"), "utf8");
+  assert.doesNotMatch(source, /postMessage|contentWindow|window\.parent/);
 });
 
-test("references only local simulator assets in the static HTML", async () => {
-  const pages = await Promise.all(
-    ["index.html", "agent-host.html"].map((name) =>
-      readFile(resolve(simulatorDirectory, name), "utf8")
-    )
-  );
-  for (const page of pages) {
-    assert.doesNotMatch(page, /<(?:script|link)[^>]+(?:src|href)=["']https?:/i);
-  }
+test("references only local simulator assets in the public page", async () => {
+  const page = await readFile(resolve(simulatorDirectory, "index.html"), "utf8");
+  assert.doesNotMatch(page, /<(?:script|link)[^>]+(?:src|href)=["']https?:/i);
 });
 
-test("waits for Salesforce readiness and clears sessions between scenarios", async () => {
-  const [host, parent] = await Promise.all(
-    ["agent-host.js", "app.js"].map((name) =>
+test("embeds Salesforce directly and does not render the legacy host iframe", async () => {
+  const [page, app, lifecycle] = await Promise.all(
+    ["index.html", "app.js", "messaging-lifecycle.js"].map((name) =>
       readFile(resolve(simulatorDirectory, name), "utf8")
     )
   );
 
-  assert.match(host, /onEmbeddedMessagingReady[\s\S]*announceReady\(\)/);
-  assert.match(host, /activeScenarioId/);
-  assert.match(host, /clearSession\(\{ shouldEndSession: true \}\)/);
-  assert.match(parent, /resetEventId/);
-  assert.match(parent, /Scenario changed; clearing the previous conversation automatically/);
+  assert.match(page, /id="salesforce-mount"/);
+  assert.doesNotMatch(page, /<iframe\b|agent-host\.html|id="agent-host"/i);
+  assert.match(app, /embeddedservice_bootstrap\.init/);
+  assert.match(lifecycle, /setHiddenPrechatFields/);
+  assert.match(lifecycle, /launchChat\(\)/);
+  assert.doesNotMatch(app, /displayMode\s*=\s*["']inline["']/);
 });
 
-test("opens the embedded website chat and distinguishes it from Builder Preview", async () => {
-  const [host, page] = await Promise.all(
-    ["agent-host.js", "index.html"].map((name) =>
-      readFile(resolve(simulatorDirectory, name), "utf8")
-    )
+test("registers lifecycle listeners before injecting Salesforce bootstrap", async () => {
+  const app = await readFile(resolve(simulatorDirectory, "app.js"), "utf8");
+  const readyListener = app.indexOf(
+    'addEventListener("onEmbeddedMessagingReady"'
   );
+  const buttonCreatedListener = app.indexOf(
+    '"onEmbeddedMessagingButtonCreated"'
+  );
+  const bootstrapAppend = app.indexOf("document.head.append(script)");
+  assert.ok(readyListener >= 0);
+  assert.ok(buttonCreatedListener >= 0);
+  assert.ok(bootstrapAppend >= 0);
+  assert.ok(readyListener < bootstrapAppend);
+  assert.ok(buttonCreatedListener < bootstrapAppend);
+});
 
-  assert.match(host, /launchChat\(\{ shouldStartNewConversation: true \}\)/);
-  assert.match(host, /Agentforce Builder Preview is a separate session/);
+test("uses a Salesforce-compatible referrer policy and distinguishes Builder Preview", async () => {
+  const page = await readFile(resolve(simulatorDirectory, "index.html"), "utf8");
+  assert.match(page, /<meta name="referrer" content="origin"/);
+  assert.doesNotMatch(page, /content="no-referrer"/);
   assert.match(page, /Do not switch to Agentforce Builder Preview/);
 });

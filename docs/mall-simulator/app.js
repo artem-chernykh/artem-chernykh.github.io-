@@ -1,9 +1,9 @@
-import { SCENARIO_LIST } from "./demo-scenarios.js";
-import {
-  READY_EVENT_TYPE,
-  RESULT_EVENT_TYPE,
-  buildContextEnvelope
-} from "./protocol.js";
+import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.5";
+import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.5";
+import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.5";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.5";
+
+const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
 const elements = {
   scenarioSelect: document.querySelector("#scenario-select"),
@@ -14,18 +14,56 @@ const elements = {
   copyButton: document.querySelector("#copy-button"),
   payloadPreview: document.querySelector("#payload-preview"),
   hostPanel: document.querySelector(".host-panel"),
-  frame: document.querySelector("#agent-host"),
   hostStatus: document.querySelector("#host-status"),
   eventLog: document.querySelector("#event-log"),
-  clearLogButton: document.querySelector("#clear-log-button")
+  clearLogButton: document.querySelector("#clear-log-button"),
+  receiverStatus: document.querySelector("#receiver-status"),
+  receiverTitle: document.querySelector("#receiver-title"),
+  receiverMessage: document.querySelector("#receiver-message"),
+  originState: document.querySelector("#origin-state"),
+  schemaState: document.querySelector("#schema-state"),
+  adapterState: document.querySelector("#adapter-state"),
+  acceptedEnvelope: document.querySelector("#accepted-envelope"),
+  receiverLog: document.querySelector("#receiver-log")
 };
 
 const state = {
-  hostReady: false,
   envelope: null,
   appliedScenarioId: "",
-  resetEventId: ""
+  salesforceReadyTimeout: null
 };
+const seenEventIds = new Set();
+const lifecycle = createMessagingLifecycle({
+  getApi: () => window.embeddedservice_bootstrap
+});
+
+// Salesforce lifecycle listeners must exist before its bootstrap is injected.
+window.addEventListener("onEmbeddedMessagingReady", handleMessagingReady);
+window.addEventListener(
+  "onEmbeddedMessagingButtonCreated",
+  handleMessagingButtonCreated
+);
+window.addEventListener(
+  "onEmbeddedMessagingConversationOpened",
+  handleConversationOpened
+);
+window.addEventListener(
+  "onEmbeddedMessagingConversationStarted",
+  handleConversationStarted
+);
+window.addEventListener(
+  "onEmbeddedMessagingConversationClosed",
+  handleConversationClosed
+);
+window.addEventListener(
+  "onEmbeddedMessagingSessionStatusUpdate",
+  handleSessionStatusUpdate
+);
+window.addEventListener(
+  "onEmbeddedMessagingFirstBotMessageSent",
+  handleFirstBotMessage
+);
+window.addEventListener("onEmbeddedMessagingWindowClosed", handleWindowClosed);
 
 initialize();
 
@@ -39,19 +77,19 @@ function initialize() {
 
   elements.scenarioSelect.value = SCENARIO_LIST[0].id;
   elements.scenarioSelect.addEventListener("change", handleScenarioChange);
-  elements.sendButton.addEventListener("click", sendContext);
-  elements.reloadButton.addEventListener("click", resetHost);
+  elements.sendButton.addEventListener("click", () => void sendContext());
+  elements.reloadButton.addEventListener("click", () => void resetHost());
   elements.copyButton.addEventListener("click", copyPayload);
-  elements.clearLogButton.addEventListener("click", () => elements.eventLog.replaceChildren());
-  elements.frame.addEventListener("load", () => {
-    state.hostReady = false;
-    elements.sendButton.disabled = true;
-    setHostStatus("Waiting", "waiting");
-  });
-  window.addEventListener("message", receiveHostMessage);
+  elements.clearLogButton.addEventListener("click", () =>
+    elements.eventLog.replaceChildren()
+  );
 
   refreshPreview();
-  addLog("Simulator ready. Waiting for the isolated host.", "info");
+  setHostStatus("Loading", "waiting");
+  setReceiverStatus("Starting", "waiting");
+  addLog("Simulator ready. Connecting directly to Salesforce.", "info");
+  addReceiverLog("Loading the published Agentforce deployment.", "info");
+  initializeSalesforceAdapter();
 }
 
 function refreshPreview() {
@@ -71,51 +109,173 @@ function refreshPreview() {
   elements.payloadPreview.textContent = JSON.stringify(state.envelope, null, 2);
 }
 
-function sendContext() {
-  if (!state.hostReady || !elements.frame.contentWindow) {
-    addLog("The host is not ready; nothing was sent.", "error");
+async function sendContext() {
+  const currentState = lifecycle.snapshot();
+  if (!currentState.ready || currentState.busy) {
+    addLog("Salesforce is not ready; nothing was submitted.", "error");
     return;
   }
 
-  // Rebuild immediately before transmission so ordinary scenarios are fresh.
   state.envelope = buildContextEnvelope(selectedScenario());
   elements.payloadPreview.textContent = JSON.stringify(state.envelope, null, 2);
-  elements.frame.contentWindow.postMessage(state.envelope, window.location.origin);
-  elements.sendButton.disabled = true;
-  addLog(`Sent fixed scenario “${state.envelope.scenarioId}”.`, "sent");
+  setControlsForOperation(true);
   setHostStatus("Validating", "waiting");
-}
+  addLog(`Validating fixed scenario “${state.envelope.scenarioId}”.`, "sent");
 
-function resetHost() {
-  if (state.hostReady && elements.frame.contentWindow) {
-    const logoutScenario = SCENARIO_LIST.find((scenario) => scenario.id === "logout");
-    const logoutEnvelope = buildContextEnvelope(logoutScenario);
-    state.resetEventId = logoutEnvelope.eventId;
-    elements.frame.contentWindow.postMessage(logoutEnvelope, window.location.origin);
-    elements.sendButton.disabled = true;
-    setHostStatus("Clearing", "waiting");
-    addLog("Ending and clearing the Salesforce session before reset.", "sent");
+  const result = validateContextEvent({
+    data: state.envelope,
+    origin: window.location.origin,
+    source: window,
+    expectedOrigin: window.location.origin,
+    expectedSource: window
+  });
+
+  if (!result.ok) {
+    showRejected(result);
+    setControlsForOperation(false);
     return;
   }
 
-  reloadHostFrame();
+  if (seenEventIds.has(state.envelope.eventId)) {
+    showRejected({
+      ok: false,
+      code: "REPLAY_REJECTED",
+      message: "The event ID has already been processed.",
+      stage: "schema"
+    });
+    setControlsForOperation(false);
+    return;
+  }
+  seenEventIds.add(state.envelope.eventId);
+
+  elements.originState.textContent = "Accepted";
+  elements.schemaState.textContent = "Accepted";
+  elements.acceptedEnvelope.textContent = JSON.stringify(state.envelope, null, 2);
+
+  try {
+    if (result.scenario.id === "logout") {
+      setHostStatus("Clearing", "waiting");
+      setAdapterState("Ending conversation", "muted-text");
+      await lifecycle.reset();
+      state.appliedScenarioId = "";
+      showCleared(
+        "Logout accepted",
+        "Salesforce ended the conversation and cleared its browser session."
+      );
+      return;
+    }
+
+    setHostStatus("Starting chat", "waiting");
+    setReceiverStatus("Connecting", "waiting");
+    setAdapterState("Clearing prior session", "muted-text");
+    addReceiverLog(
+      "Clearing any prior Salesforce session before applying new pre-chat context.",
+      "sent"
+    );
+    await applyScenarioToSalesforce(state.envelope);
+    state.appliedScenarioId = result.scenario.id;
+    showAccepted(
+      "Agentforce chat opened",
+      "The scenario was validated and supplied through hidden pre-chat. Complete any visible pre-chat prompts inside the chat."
+    );
+    elements.hostPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    showRejected({
+      ok: false,
+      code: "BRIDGE_OR_ADAPTER_FAILED",
+      message: customerSafeError(error),
+      stage: "adapter"
+    });
+  } finally {
+    setControlsForOperation(false);
+  }
 }
 
-function reloadHostFrame() {
-  state.hostReady = false;
-  state.appliedScenarioId = "";
-  state.resetEventId = "";
-  elements.sendButton.disabled = true;
-  elements.frame.src = `agent-host.html?v=20260805.3&reset=${Date.now()}`;
-  setHostStatus("Loading", "waiting");
-  addLog("Agent host reset after the prior Salesforce session boundary was cleared.", "info");
+async function applyScenarioToSalesforce(envelope) {
+  if (SALESFORCE_CONFIG.sandboxScenarioIngress.enabled) {
+    await lifecycle.startConversation({
+      conversationKey: envelope.scenarioId,
+      hiddenPrechatFields: {
+        [SALESFORCE_CONFIG.sandboxScenarioIngress.hiddenPrechatScenarioField]:
+          envelope.scenarioId
+      }
+    });
+    return;
+  }
+
+  if (!SALESFORCE_CONFIG.bridge.enabled) {
+    throw new Error("The Salesforce context adapter is disabled.");
+  }
+
+  const bridgeResponse = await exchangeOpaqueContext(envelope);
+  await lifecycle.startConversation({
+    conversationKey: envelope.scenarioId,
+    hiddenPrechatFields: {
+      [SALESFORCE_CONFIG.enhancedWebChat.hiddenPrechatContextField]:
+        bridgeResponse.mallContextToken
+    },
+    beforeLaunch: async (api) => {
+      if (bridgeResponse.mode !== "verified") {
+        return;
+      }
+      if (!api.userVerificationAPI?.setIdentityToken || !bridgeResponse.identityToken) {
+        throw new Error("The Salesforce user-verification API or token is unavailable.");
+      }
+      api.userVerificationAPI.setIdentityToken({
+        identityTokenType: "JWT",
+        identityToken: bridgeResponse.identityToken
+      });
+    }
+  });
+}
+
+async function resetHost() {
+  const currentState = lifecycle.snapshot();
+  if (!currentState.ready) {
+    window.location.reload();
+    return;
+  }
+  if (currentState.busy) {
+    return;
+  }
+
+  setControlsForOperation(true);
+  setHostStatus("Clearing", "waiting");
+  setReceiverStatus("Clearing", "waiting");
+  setAdapterState("Ending conversation", "muted-text");
+  addLog("Ending and clearing the Salesforce session.", "sent");
+  addReceiverLog("Reset requested through the official clearSession API.", "sent");
+
+  try {
+    await lifecycle.reset();
+    state.appliedScenarioId = "";
+    elements.originState.textContent = "Pending";
+    elements.schemaState.textContent = "Pending";
+    elements.acceptedEnvelope.textContent = "No event accepted.";
+    setHostStatus("Ready", "success");
+    setReceiverStatus("Ready", "success");
+    setAdapterState("Enhanced Web Chat ready", "success-text");
+    elements.receiverTitle.textContent = "Fresh Agentforce session ready";
+    elements.receiverMessage.textContent =
+      "Select a scenario and start a new website conversation.";
+    addLog("Salesforce session boundary cleared.", "received");
+  } catch (error) {
+    setHostStatus("Reset failed", "danger");
+    setReceiverStatus("Reset failed", "danger");
+    setAdapterState("Reset failed", "danger-text");
+    elements.receiverTitle.textContent = "Salesforce session reset failed";
+    elements.receiverMessage.textContent = customerSafeError(error);
+    addLog(customerSafeError(error), "error");
+  } finally {
+    setControlsForOperation(false);
+  }
 }
 
 function handleScenarioChange() {
   refreshPreview();
   if (state.appliedScenarioId) {
     addLog("Scenario changed; clearing the previous conversation automatically.", "info");
-    resetHost();
+    void resetHost();
   }
 }
 
@@ -131,49 +291,242 @@ async function copyPayload() {
   }
 }
 
-function receiveHostMessage(event) {
-  if (event.origin !== window.location.origin || event.source !== elements.frame.contentWindow) {
-    return;
-  }
-  if (!event.data || typeof event.data !== "object") {
-    return;
-  }
+function handleMessagingReady() {
+  lifecycle.handleReady();
+  addReceiverLog("Salesforce emitted onEmbeddedMessagingReady.", "received");
+  updateSalesforceClientReadiness();
+}
 
-  if (event.data.type === READY_EVENT_TYPE) {
-    state.hostReady = true;
-    elements.sendButton.disabled = false;
-    setHostStatus("Ready", "success");
-    addLog("Host ready; exact origin and source window confirmed.", "received");
-    return;
-  }
+function handleMessagingButtonCreated() {
+  lifecycle.handleButtonCreated();
+  addReceiverLog(
+    "Salesforce emitted onEmbeddedMessagingButtonCreated; Launch Chat is available.",
+    "received"
+  );
+  updateSalesforceClientReadiness();
+}
 
-  if (event.data.type === RESULT_EVENT_TYPE) {
-    const accepted = event.data.ok === true;
-
-    if (state.resetEventId && event.data.eventId === state.resetEventId) {
-      if (accepted && event.data.code === "LOGOUT_ACCEPTED") {
-        reloadHostFrame();
-      } else {
-        state.resetEventId = "";
-        elements.sendButton.disabled = !state.hostReady;
-        setHostStatus("Reset failed", "danger");
-        addLog(`Reset failed: ${event.data.code} — ${event.data.message}`, "error");
-      }
-      return;
-    }
-
-    if (accepted && event.data.eventId === state.envelope?.eventId) {
-      state.appliedScenarioId =
-        state.envelope.scenarioId === "logout" ? "" : state.envelope.scenarioId;
-      elements.hostPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    setHostStatus(accepted ? "Accepted" : "Rejected", accepted ? "success" : "danger");
-    elements.sendButton.disabled = accepted && Boolean(state.appliedScenarioId);
-    addLog(
-      `${accepted ? "Accepted" : "Rejected"}: ${event.data.code} — ${event.data.message}`,
-      accepted ? "received" : "error"
+function updateSalesforceClientReadiness() {
+  const currentState = lifecycle.snapshot();
+  if (!currentState.ready) {
+    setAdapterState(
+      currentState.apiReady
+        ? "API ready · waiting for chat client"
+        : "Chat client created · waiting for API",
+      "muted-text"
     );
+    setReceiverStatus("Initializing", "waiting");
+    setHostStatus("Loading", "waiting");
+    setControlsForOperation(false);
+    return;
   }
+
+  clearTimeout(state.salesforceReadyTimeout);
+  setAdapterState("Enhanced Web Chat ready", "success-text");
+  setReceiverStatus("Ready", "success");
+  setHostStatus("Ready", "success");
+  elements.receiverTitle.textContent = "Salesforce Agentforce is ready";
+  elements.receiverMessage.textContent =
+    "Choose a fixed scenario and select Start scenario and open chat.";
+  setControlsForOperation(false);
+}
+
+function handleConversationOpened() {
+  lifecycle.handleConversationOpened();
+  addReceiverLog("A Salesforce conversation was opened in this browser tab.", "received");
+}
+
+function handleConversationStarted(event) {
+  lifecycle.handleConversationStarted(event.detail ?? {});
+  const conversationId = event.detail?.conversationId;
+  setAdapterState("Conversation connected", "success-text");
+  setReceiverStatus("Connected", "success");
+  setHostStatus("Connected", "success");
+  addReceiverLog(
+    conversationId
+      ? `Salesforce started conversation ${conversationId}.`
+      : "Salesforce started a new conversation.",
+    "received"
+  );
+}
+
+function handleConversationClosed() {
+  lifecycle.handleConversationClosed();
+  state.appliedScenarioId = "";
+  addReceiverLog("The Salesforce conversation ended.", "received");
+  setControlsForOperation(false);
+}
+
+function handleSessionStatusUpdate(event) {
+  const status = extractSessionStatus(event.detail);
+  lifecycle.handleSessionStatus(status);
+  addReceiverLog(`Messaging session status: ${status || "updated"}.`, "received");
+  if (String(status).toLowerCase() === "ended") {
+    state.appliedScenarioId = "";
+    setHostStatus("Ended", "neutral");
+    setReceiverStatus("Ended", "neutral");
+    setAdapterState("Session ended · new scenario available", "muted-text");
+    setControlsForOperation(false);
+  }
+}
+
+function handleFirstBotMessage() {
+  addReceiverLog("ALFRED sent the first Agentforce message.", "received");
+}
+
+function handleWindowClosed() {
+  addReceiverLog("The Salesforce chat window closed.", "info");
+}
+
+function initializeSalesforceAdapter() {
+  const config = SALESFORCE_CONFIG.enhancedWebChat;
+  if (!config.enabled) {
+    setAdapterState("Disabled safely", "muted-text");
+    addReceiverLog("Salesforce adapter disabled by explicit configuration.", "info");
+    return;
+  }
+
+  const requiredValues = [
+    config.bootstrapUrl,
+    config.orgId,
+    config.deploymentName,
+    config.siteUrl,
+    config.scrt2Url
+  ];
+  if (requiredValues.some((value) => !value)) {
+    setAdapterState("Configuration incomplete", "danger-text");
+    setReceiverStatus("Setup failed", "danger");
+    addReceiverLog("Salesforce deployment coordinates are incomplete.", "error");
+    return;
+  }
+
+  const script = document.createElement("script");
+  script.src = config.bootstrapUrl;
+  script.async = true;
+  script.addEventListener("load", () => {
+    try {
+      window.embeddedservice_bootstrap.settings.language = config.language;
+      window.embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
+      // Agentforce_Messaging is currently Web v1. Do not set v2-only inline mode here.
+      window.embeddedservice_bootstrap.init(
+        config.orgId,
+        config.deploymentName,
+        config.siteUrl,
+        { scrt2URL: config.scrt2Url }
+      );
+      setAdapterState("Initializing", "muted-text");
+      state.salesforceReadyTimeout = setTimeout(() => {
+        if (lifecycle.snapshot().ready) {
+          return;
+        }
+        setAdapterState("Timed out · reload page", "danger-text");
+        setReceiverStatus("Setup failed", "danger");
+        setHostStatus("Setup failed", "danger");
+        elements.receiverTitle.textContent = "Salesforce chat did not become ready";
+        elements.receiverMessage.textContent =
+          "Reload the simulator. If this persists, inspect CORS and Trusted Domains.";
+        addReceiverLog(
+          "Enhanced Web Chat did not report ready within 20 seconds.",
+          "error"
+        );
+      }, SALESFORCE_READY_TIMEOUT_MS);
+    } catch {
+      setAdapterState("Initialization failed", "danger-text");
+      setReceiverStatus("Setup failed", "danger");
+      addReceiverLog("Enhanced Web Chat initialization failed.", "error");
+    }
+  });
+  script.addEventListener("error", () => {
+    setAdapterState("Bootstrap blocked", "danger-text");
+    setReceiverStatus("Setup failed", "danger");
+    addReceiverLog("Enhanced Web Chat bootstrap script did not load.", "error");
+  });
+  document.head.append(script);
+}
+
+async function exchangeOpaqueContext(envelope) {
+  const { exchangeUrl, timeoutMilliseconds } = SALESFORCE_CONFIG.bridge;
+  if (!exchangeUrl) {
+    throw new Error("The trusted bridge URL is not configured.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMilliseconds);
+  try {
+    const response = await fetch(exchangeUrl, {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scenarioId: envelope.scenarioId,
+        demoToken: envelope.demoToken,
+        eventId: envelope.eventId,
+        issuedAt: envelope.issuedAt
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`The trusted bridge returned HTTP ${response.status}.`);
+    }
+    const payload = await response.json();
+    if (
+      !payload ||
+      !["guest", "verified"].includes(payload.mode) ||
+      typeof payload.mallContextToken !== "string" ||
+      (payload.mode === "verified" && typeof payload.identityToken !== "string")
+    ) {
+      throw new Error("The trusted bridge response does not match the contract.");
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function showAccepted(title, message) {
+  setHostStatus("Chat open", "success");
+  setReceiverStatus("Open", "success");
+  setAdapterState("Scenario supplied · chat launched", "success-text");
+  elements.receiverTitle.textContent = title;
+  elements.receiverMessage.textContent = message;
+  addLog(message, "received");
+  addReceiverLog(message, "received");
+}
+
+function showCleared(title, message) {
+  setHostStatus("Ready", "success");
+  setReceiverStatus("Ready", "success");
+  setAdapterState("Session cleared", "success-text");
+  elements.receiverTitle.textContent = title;
+  elements.receiverMessage.textContent = message;
+  addLog(message, "received");
+  addReceiverLog(message, "received");
+}
+
+function showRejected(result) {
+  setHostStatus("Rejected", "danger");
+  setReceiverStatus("Rejected", "danger");
+  elements.receiverTitle.textContent = "Context rejected";
+  elements.receiverMessage.textContent = `${result.code}: ${result.message}`;
+  if (result.stage === "origin") {
+    elements.originState.textContent = "Rejected";
+  } else if (result.stage === "schema") {
+    elements.originState.textContent = "Accepted";
+    elements.schemaState.textContent = "Rejected";
+  }
+  addLog(`${result.code}: ${result.message}`, "error");
+  addReceiverLog(`${result.code}: ${result.message}`, "error");
+}
+
+function setControlsForOperation(forcedBusy) {
+  const currentState = lifecycle.snapshot();
+  const busy = forcedBusy || currentState.busy;
+  elements.scenarioSelect.disabled = busy;
+  elements.sendButton.disabled =
+    busy || !currentState.ready || Boolean(state.appliedScenarioId);
+  elements.reloadButton.disabled = busy;
 }
 
 function selectedScenario() {
@@ -185,7 +538,25 @@ function setHostStatus(label, variant) {
   elements.hostStatus.className = `status-chip ${variant}`;
 }
 
+function setReceiverStatus(label, variant) {
+  elements.receiverStatus.textContent = label;
+  elements.receiverStatus.className = `status-chip ${variant}`;
+}
+
+function setAdapterState(label, className) {
+  elements.adapterState.textContent = label;
+  elements.adapterState.className = className;
+}
+
 function addLog(message, variant) {
+  addLogEntry(elements.eventLog, message, variant);
+}
+
+function addReceiverLog(message, variant) {
+  addLogEntry(elements.receiverLog, message, variant);
+}
+
+function addLogEntry(target, message, variant) {
   const entry = document.createElement("li");
   const timestamp = document.createElement("time");
   timestamp.dateTime = new Date().toISOString();
@@ -198,7 +569,16 @@ function addLog(message, variant) {
   text.textContent = message;
   entry.className = `log-${variant}`;
   entry.append(timestamp, text);
-  elements.eventLog.prepend(entry);
+  target.prepend(entry);
+}
+
+function extractSessionStatus(detail) {
+  return (
+    detail?.status ??
+    detail?.data?.status ??
+    detail?.conversationEntry?.entryPayload?.status ??
+    ""
+  );
 }
 
 function element(tagName, text, className = "") {
@@ -208,4 +588,11 @@ function element(tagName, text, className = "") {
     node.className = className;
   }
   return node;
+}
+
+function customerSafeError(error) {
+  if (error?.name === "AbortError") {
+    return "The trusted bridge did not respond within the configured time.";
+  }
+  return error instanceof Error ? error.message : "The adapter could not apply the context.";
 }
