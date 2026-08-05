@@ -20,16 +20,20 @@ const expectedParentOrigin =
   SALESFORCE_CONFIG.expectedParentOrigin || window.location.origin;
 const seenEventIds = new Set();
 let messagingReady = false;
+let activeScenarioId = "";
 
 window.addEventListener("message", receiveContextEvent);
 window.addEventListener("onEmbeddedMessagingReady", () => {
   messagingReady = true;
   setAdapterState("Enhanced Web Chat ready", "success-text");
   addLog("Salesforce Enhanced Web Chat reported ready.", "received");
+  announceReady();
 });
 
-initializeSalesforceAdapter();
-announceReady();
+const waitsForSalesforce = initializeSalesforceAdapter();
+if (!waitsForSalesforce) {
+  announceReady();
+}
 
 async function receiveContextEvent(event) {
   const result = validateContextEvent({
@@ -162,10 +166,16 @@ async function applySandboxScenario(scenarioId) {
   if (!prechatApi) {
     throw new Error("The Salesforce hidden pre-chat API is unavailable.");
   }
+  if (activeScenarioId) {
+    throw new Error(
+      "A Mall scenario is already bound to this conversation. Reset the Agent host before switching scenarios."
+    );
+  }
 
   prechatApi.setHiddenPrechatFields({
     [SALESFORCE_CONFIG.sandboxScenarioIngress.hiddenPrechatScenarioField]: scenarioId
   });
+  activeScenarioId = scenarioId;
   window.embeddedservice_bootstrap?.utilAPI?.showChatButton?.();
   setAdapterState("Scenario supplied · open chat", "success-text");
   addLog("Fixed scenario key supplied to hidden pre-chat; no trust data was sent.", "received");
@@ -220,6 +230,7 @@ async function handleLogout() {
   } else {
     addLog("No live Salesforce session existed; local host state was cleared.", "info");
   }
+  activeScenarioId = "";
   elements.acceptedEnvelope.textContent = "Session cleared. Start a new Guest conversation.";
   setAdapterState("Session cleared", "success-text");
 }
@@ -229,7 +240,7 @@ function initializeSalesforceAdapter() {
   if (!config.enabled) {
     setAdapterState("Disabled safely", "muted-text");
     addLog("Salesforce adapter disabled by explicit configuration.", "info");
-    return;
+    return false;
   }
 
   const requiredValues = [
@@ -242,7 +253,7 @@ function initializeSalesforceAdapter() {
   if (requiredValues.some((value) => !value)) {
     setAdapterState("Configuration incomplete", "danger-text");
     addLog("Salesforce deployment coordinates are incomplete.", "error");
-    return;
+    return true;
   }
 
   const script = document.createElement("script");
@@ -269,6 +280,7 @@ function initializeSalesforceAdapter() {
     addLog("Enhanced Web Chat bootstrap script did not load.", "error");
   });
   document.head.append(script);
+  return true;
 }
 
 function announceReady() {

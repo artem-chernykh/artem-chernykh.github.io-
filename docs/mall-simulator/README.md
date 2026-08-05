@@ -31,7 +31,7 @@ Serve the folder over HTTP. Do not open `index.html` through `file://`, because
 file pages have an opaque `null` origin and cannot prove the parent origin.
 
 ```bash
-python3 -m http.server 4173 --directory mall-simulator
+python3 -m http.server 4173 --directory docs/mall-simulator
 ```
 
 Then open <http://127.0.0.1:4173/>.
@@ -39,7 +39,7 @@ Then open <http://127.0.0.1:4173/>.
 Run the protocol tests with:
 
 ```bash
-cd mall-simulator
+cd docs/mall-simulator
 npm test
 ```
 
@@ -86,6 +86,10 @@ The child receiver checks:
 - the matching fixed demo token.
 
 It also rejects an event ID already processed in that host instance.
+The parent does not enable scenario submission until Salesforce emits
+`onEmbeddedMessagingReady`. One non-logout scenario is allowed per conversation;
+changing or resetting a scenario first calls `clearSession` and starts with a
+fresh chat boundary.
 
 ## Current IBM development sandbox connection
 
@@ -148,12 +152,11 @@ fresh Guest conversation after logout.
 
 ## GitHub Pages
 
-The repository-level workflow `.github/workflows/mall-simulator-pages.yml`
-publishes after simulator changes are merged to `main` and can also be started
-manually. Before its first run, configure GitHub Pages to use **GitHub Actions**
-as the source and review the target repository's visibility. A private
-repository does not automatically make its published site private on every
-GitHub plan.
+The repository already publishes the `docs` folder from `main`. The simulator
+lives below `docs/mall-simulator`, so the standard Pages build exposes it at the
+project site's `/mall-simulator/` path. The repository workflow runs regression
+tests for each simulator change; GitHub's existing Pages build performs the
+publication.
 
 GitHub Pages is static hosting. It cannot safely sign JWTs, hold secrets, verify
 a Mall login, execute OAuth client credentials, or provide a trusted CORS proxy.

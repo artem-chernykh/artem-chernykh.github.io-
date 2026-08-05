@@ -21,7 +21,9 @@ const elements = {
 
 const state = {
   hostReady: false,
-  envelope: null
+  envelope: null,
+  appliedScenarioId: "",
+  resetEventId: ""
 };
 
 initialize();
@@ -35,7 +37,7 @@ function initialize() {
   }
 
   elements.scenarioSelect.value = SCENARIO_LIST[0].id;
-  elements.scenarioSelect.addEventListener("change", refreshPreview);
+  elements.scenarioSelect.addEventListener("change", handleScenarioChange);
   elements.sendButton.addEventListener("click", sendContext);
   elements.reloadButton.addEventListener("click", resetHost);
   elements.copyButton.addEventListener("click", copyPayload);
@@ -78,16 +80,42 @@ function sendContext() {
   state.envelope = buildContextEnvelope(selectedScenario());
   elements.payloadPreview.textContent = JSON.stringify(state.envelope, null, 2);
   elements.frame.contentWindow.postMessage(state.envelope, window.location.origin);
+  elements.sendButton.disabled = true;
   addLog(`Sent fixed scenario “${state.envelope.scenarioId}”.`, "sent");
   setHostStatus("Validating", "waiting");
 }
 
 function resetHost() {
+  if (state.hostReady && elements.frame.contentWindow) {
+    const logoutScenario = SCENARIO_LIST.find((scenario) => scenario.id === "logout");
+    const logoutEnvelope = buildContextEnvelope(logoutScenario);
+    state.resetEventId = logoutEnvelope.eventId;
+    elements.frame.contentWindow.postMessage(logoutEnvelope, window.location.origin);
+    elements.sendButton.disabled = true;
+    setHostStatus("Clearing", "waiting");
+    addLog("Ending and clearing the Salesforce session before reset.", "sent");
+    return;
+  }
+
+  reloadHostFrame();
+}
+
+function reloadHostFrame() {
   state.hostReady = false;
+  state.appliedScenarioId = "";
+  state.resetEventId = "";
   elements.sendButton.disabled = true;
   elements.frame.src = `agent-host.html?reset=${Date.now()}`;
   setHostStatus("Loading", "waiting");
-  addLog("Agent host reset. Any in-frame session state was discarded.", "info");
+  addLog("Agent host reset after the prior Salesforce session boundary was cleared.", "info");
+}
+
+function handleScenarioChange() {
+  refreshPreview();
+  if (state.appliedScenarioId) {
+    addLog("Scenario changed; clearing the previous conversation automatically.", "info");
+    resetHost();
+  }
 }
 
 async function copyPayload() {
@@ -120,7 +148,25 @@ function receiveHostMessage(event) {
 
   if (event.data.type === RESULT_EVENT_TYPE) {
     const accepted = event.data.ok === true;
+
+    if (state.resetEventId && event.data.eventId === state.resetEventId) {
+      if (accepted && event.data.code === "LOGOUT_ACCEPTED") {
+        reloadHostFrame();
+      } else {
+        state.resetEventId = "";
+        elements.sendButton.disabled = !state.hostReady;
+        setHostStatus("Reset failed", "danger");
+        addLog(`Reset failed: ${event.data.code} — ${event.data.message}`, "error");
+      }
+      return;
+    }
+
+    if (accepted && event.data.eventId === state.envelope?.eventId) {
+      state.appliedScenarioId =
+        state.envelope.scenarioId === "logout" ? "" : state.envelope.scenarioId;
+    }
     setHostStatus(accepted ? "Accepted" : "Rejected", accepted ? "success" : "danger");
+    elements.sendButton.disabled = accepted && Boolean(state.appliedScenarioId);
     addLog(
       `${accepted ? "Accepted" : "Rejected"}: ${event.data.code} — ${event.data.message}`,
       accepted ? "received" : "error"

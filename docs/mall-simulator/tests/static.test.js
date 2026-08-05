@@ -55,3 +55,17 @@ test("references only local simulator assets in the static HTML", async () => {
     assert.doesNotMatch(page, /<(?:script|link)[^>]+(?:src|href)=["']https?:/i);
   }
 });
+
+test("waits for Salesforce readiness and clears sessions between scenarios", async () => {
+  const [host, parent] = await Promise.all(
+    ["agent-host.js", "app.js"].map((name) =>
+      readFile(resolve(simulatorDirectory, name), "utf8")
+    )
+  );
+
+  assert.match(host, /onEmbeddedMessagingReady[\s\S]*announceReady\(\)/);
+  assert.match(host, /activeScenarioId/);
+  assert.match(host, /clearSession\(\{ shouldEndSession: true \}\)/);
+  assert.match(parent, /resetEventId/);
+  assert.match(parent, /Scenario changed; clearing the previous conversation automatically/);
+});
