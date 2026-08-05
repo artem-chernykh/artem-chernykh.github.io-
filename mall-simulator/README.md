@@ -148,11 +148,12 @@ fresh Guest conversation after logout.
 
 ## GitHub Pages
 
-The repository-level workflow `.github/workflows/mall-simulator-pages.yml` is
-manual only. It does not publish on push. Before its first run, configure GitHub
-Pages to use **GitHub Actions** as the source and review the target repository's
-visibility. A private repository does not automatically make its published site
-private on every GitHub plan.
+The repository-level workflow `.github/workflows/mall-simulator-pages.yml`
+publishes after simulator changes are merged to `main` and can also be started
+manually. Before its first run, configure GitHub Pages to use **GitHub Actions**
+as the source and review the target repository's visibility. A private
+repository does not automatically make its published site private on every
+GitHub plan.
 
 GitHub Pages is static hosting. It cannot safely sign JWTs, hold secrets, verify
 a Mall login, execute OAuth client credentials, or provide a trusted CORS proxy.
