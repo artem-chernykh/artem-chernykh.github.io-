@@ -1,9 +1,12 @@
-import { SALESFORCE_CONFIG } from "./salesforce-config.js";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.2";
 import {
+  CONTEXT_EVENT_TYPE,
   READY_EVENT_TYPE,
   RESULT_EVENT_TYPE,
   validateContextEvent
-} from "./protocol.js";
+} from "./protocol.js?v=20260805.2";
+
+const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
 const elements = {
   receiverStatus: document.querySelector("#receiver-status"),
@@ -21,9 +24,11 @@ const expectedParentOrigin =
 const seenEventIds = new Set();
 let messagingReady = false;
 let activeScenarioId = "";
+let salesforceReadyTimeout;
 
 window.addEventListener("message", receiveContextEvent);
 window.addEventListener("onEmbeddedMessagingReady", () => {
+  clearTimeout(salesforceReadyTimeout);
   messagingReady = true;
   setAdapterState("Enhanced Web Chat ready", "success-text");
   addLog("Salesforce Enhanced Web Chat reported ready.", "received");
@@ -36,6 +41,12 @@ if (!waitsForSalesforce) {
 }
 
 async function receiveContextEvent(event) {
+  // Salesforce uses postMessage internally. Those messages are not part of the
+  // simulator protocol and must not overwrite the receiver status or trace.
+  if (event.source !== window.parent || event.data?.type !== CONTEXT_EVENT_TYPE) {
+    return;
+  }
+
   const result = validateContextEvent({
     data: event.data,
     origin: event.origin,
@@ -270,6 +281,17 @@ function initializeSalesforceAdapter() {
         { scrt2URL: config.scrt2Url }
       );
       setAdapterState("Initializing", "muted-text");
+      salesforceReadyTimeout = setTimeout(() => {
+        if (messagingReady) {
+          return;
+        }
+        setAdapterState("Timed out · reset host", "danger-text");
+        setReceiverStatus("Setup failed", "danger");
+        elements.receiverTitle.textContent = "Salesforce chat did not become ready";
+        elements.receiverMessage.textContent =
+          "Select Reset Agent host. If this persists, reload the simulator.";
+        addLog("Enhanced Web Chat did not report ready within 20 seconds.", "error");
+      }, SALESFORCE_READY_TIMEOUT_MS);
     } catch {
       setAdapterState("Initialization failed", "danger-text");
       addLog("Enhanced Web Chat initialization failed.", "error");
