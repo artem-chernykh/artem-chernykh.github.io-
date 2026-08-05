@@ -1,7 +1,7 @@
-import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.5";
-import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.5";
-import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.5";
-import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.5";
+import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.6";
+import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.6";
+import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.6";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.6";
 
 const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
@@ -167,9 +167,9 @@ async function sendContext() {
 
     setHostStatus("Starting chat", "waiting");
     setReceiverStatus("Connecting", "waiting");
-    setAdapterState("Clearing prior session", "muted-text");
+    setAdapterState("Preparing scenario context", "muted-text");
     addReceiverLog(
-      "Clearing any prior Salesforce session before applying new pre-chat context.",
+      "Applying the validated scenario through hidden pre-chat and opening Agentforce.",
       "sent"
     );
     await applyScenarioToSalesforce(state.envelope);
