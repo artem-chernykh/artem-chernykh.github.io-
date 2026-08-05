@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="A sandbox-only Flender Mall context simulator for ALFRED 2.0 integration testing."
+    />
+    <title>ALFRED 2.0 | Mall Context Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="ALFRED Mall simulator home">
+        <span class="brand-mark" aria-hidden="true">A2</span>
+        <span>
+          <strong>ALFRED 2.0</strong>
+          <small>Mall integration laboratory</small>
+        </span>
+      </a>
+      <span class="environment-badge">Simulation only</span>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Flender Mall context proof</p>
+          <h1 id="page-title">Test login, role and logout journeys safely.</h1>
+          <p class="hero-copy">
+            Choose a fixed fake scenario, inspect the exact browser message, and
+            send it to the isolated Agentforce host. This page never sends customer
+            data, Salesforce credentials, trust flags or authorization decisions.
+          </p>
+        </div>
+        <aside class="boundary-card" aria-label="Trust boundary summary">
+          <span class="boundary-icon" aria-hidden="true">&#10003;</span>
+          <div>
+            <strong>One-way trust boundary</strong>
+            <p>
+              The browser supplies only a scenario key and an opaque demo token.
+              Salesforce must derive all trusted values on the server.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="workspace" aria-label="Mall context simulator">
+        <article class="panel scenario-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step-label">Step 1</p>
+              <h2>Select a fixed scenario</h2>
+            </div>
+            <span id="expected-badge" class="status-chip neutral">Ready</span>
+          </div>
+
+          <label class="field-label" for="scenario-select">Mall session</label>
+          <select id="scenario-select" class="scenario-select"></select>
+
+          <div id="scenario-detail" class="scenario-detail" aria-live="polite"></div>
+
+          <div class="button-row">
+            <button id="send-button" class="button primary" type="button" disabled>
+              Send context event
+            </button>
+            <button id="reload-button" class="button secondary" type="button">
+              Reset Agent host
+            </button>
+          </div>
+
+          <p class="fine-print">
+            No arbitrary roles, identifiers or authorization values can be entered.
+            The stale and malformed scenarios are expected to be rejected.
+          </p>
+        </article>
+
+        <article class="panel payload-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step-label">Step 2</p>
+              <h2>Inspect the payload</h2>
+            </div>
+            <button id="copy-button" class="text-button" type="button">
+              Copy JSON
+            </button>
+          </div>
+          <pre id="payload-preview" class="code-block" tabindex="0"></pre>
+          <dl class="payload-notes">
+            <div>
+              <dt>Allowed business fields</dt>
+              <dd><code>scenarioId</code>, <code>demoToken</code></dd>
+            </div>
+            <div>
+              <dt>Protocol fields</dt>
+              <dd><code>type</code>, <code>version</code>, event ID, timestamp</dd>
+            </div>
+            <div>
+              <dt>Forbidden</dt>
+              <dd>trust, roles, customer identity, quote authorization</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="panel host-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step-label">Step 3</p>
+              <h2>Agentforce host</h2>
+            </div>
+            <span id="host-status" class="status-chip waiting">Loading</span>
+          </div>
+          <iframe
+            id="agent-host"
+            class="agent-frame"
+            src="agent-host.html"
+            title="Isolated Agentforce host"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          ></iframe>
+        </article>
+
+        <article class="panel log-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step-label">Event trace</p>
+              <h2>Browser-side log</h2>
+            </div>
+            <button id="clear-log-button" class="text-button" type="button">
+              Clear
+            </button>
+          </div>
+          <ol id="event-log" class="event-log" aria-live="polite"></ol>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Sandbox demonstration. It does not authenticate a person or grant access
+        to Flender information.
+      </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
