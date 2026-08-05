@@ -1,7 +1,7 @@
-import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.6";
-import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.6";
-import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.6";
-import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.6";
+import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.7";
+import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.7";
+import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.7";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.7";
 
 const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
@@ -30,7 +30,9 @@ const elements = {
 const state = {
   envelope: null,
   appliedScenarioId: "",
-  salesforceReadyTimeout: null
+  salesforceReadyTimeout: null,
+  initialSessionPreparing: false,
+  initialSessionPrepared: false
 };
 const seenEventIds = new Set();
 const lifecycle = createMessagingLifecycle({
@@ -322,6 +324,49 @@ function updateSalesforceClientReadiness() {
   }
 
   clearTimeout(state.salesforceReadyTimeout);
+  if (!state.initialSessionPrepared) {
+    if (!state.initialSessionPreparing) {
+      void prepareInitialSessionBoundary();
+    }
+    return;
+  }
+
+  showSalesforceClientReady();
+}
+
+async function prepareInitialSessionBoundary() {
+  state.initialSessionPreparing = true;
+  setHostStatus("Clearing old session", "waiting");
+  setReceiverStatus("Preparing", "waiting");
+  setAdapterState("Removing any restored conversation", "muted-text");
+  elements.receiverTitle.textContent = "Preparing a fresh Agentforce session";
+  elements.receiverMessage.textContent =
+    "The simulator is clearing any Salesforce conversation restored by this browser.";
+  setControlsForOperation(true);
+  addReceiverLog(
+    "Clearing the browser's persisted Salesforce Messaging session before testing.",
+    "sent"
+  );
+
+  try {
+    await lifecycle.reset();
+    state.initialSessionPrepared = true;
+    addReceiverLog("A clean Salesforce session boundary is ready.", "received");
+    showSalesforceClientReady();
+  } catch (error) {
+    setHostStatus("Session cleanup failed", "danger");
+    setReceiverStatus("Setup failed", "danger");
+    setAdapterState("Could not clear restored session", "danger-text");
+    elements.receiverTitle.textContent = "Salesforce session cleanup failed";
+    elements.receiverMessage.textContent = customerSafeError(error);
+    addReceiverLog(customerSafeError(error), "error");
+  } finally {
+    state.initialSessionPreparing = false;
+    setControlsForOperation(false);
+  }
+}
+
+function showSalesforceClientReady() {
   setAdapterState("Enhanced Web Chat ready", "success-text");
   setReceiverStatus("Ready", "success");
   setHostStatus("Ready", "success");

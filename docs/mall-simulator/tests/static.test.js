@@ -75,6 +75,14 @@ test("registers lifecycle listeners before injecting Salesforce bootstrap", asyn
   assert.ok(buttonCreatedListener < bootstrapAppend);
 });
 
+test("clears any browser-restored Messaging session before enabling scenarios", async () => {
+  const app = await readFile(resolve(simulatorDirectory, "app.js"), "utf8");
+  assert.match(app, /async function prepareInitialSessionBoundary\(\)/);
+  assert.match(app, /await lifecycle\.reset\(\)/);
+  assert.match(app, /initialSessionPrepared = true/);
+  assert.match(app, /clearing any Salesforce conversation restored by this browser/i);
+});
+
 test("uses a Salesforce-compatible referrer policy and distinguishes Builder Preview", async () => {
   const page = await readFile(resolve(simulatorDirectory, "index.html"), "utf8");
   assert.match(page, /<meta name="referrer" content="origin"/);

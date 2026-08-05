@@ -88,11 +88,12 @@ Salesforce API call. It checks:
 
 It also rejects an event ID already processed in that page instance. Scenario
 submission stays disabled until Salesforce emits both
-`onEmbeddedMessagingReady` and `onEmbeddedMessagingButtonCreated`. The first
-scenario on a fresh page applies hidden pre-chat and then calls `launchChat`.
-Every later scenario first calls `clearSession`, waits for the next Ready event,
-then applies hidden pre-chat and launches the new chat. This prevents an old
-website conversation or context value from being reused. A resolved
+`onEmbeddedMessagingReady` and `onEmbeddedMessagingButtonCreated`. Before the
+button is enabled, the simulator calls `clearSession` once and waits for a fresh
+Ready event so a browser-restored conversation cannot remain stuck reconnecting
+or reuse old context. The first scenario then applies hidden pre-chat and calls
+`launchChat`. Every later scenario repeats the clean session boundary before it
+launches. A resolved
 `launchChat` call means the client opened; the later Conversation Started event
 is recorded as telemetry because a user may spend time in visible pre-chat.
 
