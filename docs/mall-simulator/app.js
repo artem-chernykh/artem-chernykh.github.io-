@@ -105,7 +105,7 @@ function reloadHostFrame() {
   state.appliedScenarioId = "";
   state.resetEventId = "";
   elements.sendButton.disabled = true;
-  elements.frame.src = `agent-host.html?reset=${Date.now()}`;
+  elements.frame.src = `agent-host.html?v=20260805.2&reset=${Date.now()}`;
   setHostStatus("Loading", "waiting");
   addLog("Agent host reset after the prior Salesforce session boundary was cleared.", "info");
 }
