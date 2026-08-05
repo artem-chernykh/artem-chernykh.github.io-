@@ -99,9 +99,10 @@ is recorded as telemetry because a user may spend time in visible pre-chat.
 
 ## Current IBM development sandbox connection
 
-`salesforce-config.js` contains only public deployment coordinates for the IBM
-development sandbox. Enhanced Web Chat and the sandbox scenario ingress are
-enabled. The trusted production bridge remains explicitly disabled.
+`salesforce-config.js` contains only public coordinates for the dedicated
+`Mall_Demo_Agentforce_Messaging` deployment in the IBM development sandbox.
+Enhanced Web Chat and the sandbox scenario ingress are enabled. The trusted
+production bridge remains explicitly disabled.
 
 After an envelope passes the page, schema, freshness, replay and fixed-token
 checks, the direct adapter passes only `scenarioId` through hidden pre-chat as

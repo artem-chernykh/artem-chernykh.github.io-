@@ -32,6 +32,9 @@ test("enables only the sandbox scenario ingress and keeps the trusted bridge dis
   assert.match(config, /const enhancedWebChat = Object\.freeze\(\{\s*enabled: true/s);
   assert.doesNotMatch(config, /-----BEGIN (?:RSA )?PRIVATE KEY-----/);
   assert.doesNotMatch(config, /clientSecret|privateKey|password\s*:/i);
+  assert.match(config, /deploymentName: "Mall_Demo_Agentforce_Messaging"/);
+  assert.match(config, /ESWMallDemoAgentforceM1785964764088/);
+  assert.doesNotMatch(config, /ESWAgentforceMessaging1771957419228/);
 });
 
 test("direct parent integration does not use postMessage plumbing", async () => {
