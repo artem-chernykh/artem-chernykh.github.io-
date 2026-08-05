@@ -33,6 +33,8 @@ test("enables only the sandbox scenario ingress and keeps the trusted bridge dis
   assert.doesNotMatch(config, /-----BEGIN (?:RSA )?PRIVATE KEY-----/);
   assert.doesNotMatch(config, /clientSecret|privateKey|password\s*:/i);
   assert.match(config, /deploymentName: "Mall_Demo_Agentforce_Messaging"/);
+  assert.match(config, /orgId: "00D9Z00000PX42h"/);
+  assert.doesNotMatch(config, /orgId: "00D9Z00000PX42hUAD"/);
   assert.match(config, /ESWMallDemoAgentforceM1785964764088/);
   assert.doesNotMatch(config, /ESWAgentforceMessaging1771957419228/);
 });

@@ -1,7 +1,7 @@
-import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.9";
-import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.9";
-import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.9";
-import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.9";
+import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.10";
+import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.10";
+import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.10";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.10";
 
 const SALESFORCE_READY_TIMEOUT_MS = 20000;
 

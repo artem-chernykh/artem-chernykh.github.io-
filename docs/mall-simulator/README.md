@@ -109,6 +109,11 @@ Messaging channel.
 Enhanced Web Chat and the sandbox scenario ingress are enabled. The trusted
 production bridge remains explicitly disabled.
 
+The `orgId` passed to the Enhanced Web Chat bootstrap is the 15-character ID
+from Salesforce's installation snippet. Do not replace it with the
+18-character API form: Messaging Event Router compares this bootstrap value
+with the org ID embedded in its access token.
+
 After an envelope passes the page, schema, freshness, replay and fixed-token
 checks, the direct adapter passes only `scenarioId` through hidden pre-chat as
 `MallSimulationScenarioId`. The inbound Routing Flow stores that key on the

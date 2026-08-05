@@ -23,7 +23,11 @@ const enhancedWebChat = Object.freeze({
   // not credentials. The SCRT host remains sandbox-specific.
   bootstrapUrl:
     "https://flender--ibmdev.sandbox.my.site.com/ESWMallDemoAgentforceM1785964764088/assets/js/bootstrap.min.js",
-  orgId: "00D9Z00000PX42hUAD",
+  // Enhanced Web Chat requires the 15-character org ID emitted by the
+  // Salesforce installation snippet. Passing the 18-character form causes
+  // Event Router to reject SSE/poll requests because the access token carries
+  // the 15-character value.
+  orgId: "00D9Z00000PX42h",
   deploymentName: "Mall_Demo_Agentforce_Messaging",
   siteUrl:
     "https://flender--ibmdev.sandbox.my.site.com/ESWMallDemoAgentforceM1785964764088",
