@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>ALFRED Agentforce Host</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="host-body">
+    <main class="host-shell">
+      <header class="host-header">
+        <div class="host-avatar" aria-hidden="true">A</div>
+        <div>
+          <p class="eyebrow">Isolated receiver</p>
+          <h1>Agentforce host</h1>
+        </div>
+        <span id="receiver-status" class="status-chip waiting">Starting</span>
+      </header>
+
+      <section class="host-message" aria-live="polite">
+        <strong id="receiver-title">Waiting for the Mall parent</strong>
+        <p id="receiver-message">
+          A context event is accepted only from the exact parent origin and window.
+        </p>
+      </section>
+
+      <section class="validation-grid" aria-label="Validation state">
+        <div>
+          <span>Origin and source</span>
+          <strong id="origin-state">Pending</strong>
+        </div>
+        <div>
+          <span>Schema and freshness</span>
+          <strong id="schema-state">Pending</strong>
+        </div>
+        <div>
+          <span>Salesforce adapter</span>
+          <strong id="adapter-state">Disabled safely</strong>
+        </div>
+      </section>
+
+      <details class="host-details">
+        <summary>Accepted envelope</summary>
+        <pre id="accepted-envelope" class="mini-code">No event accepted.</pre>
+      </details>
+
+      <section class="host-log-section" aria-labelledby="receiver-log-title">
+        <h2 id="receiver-log-title">Receiver trace</h2>
+        <ol id="receiver-log" class="event-log compact" aria-live="polite"></ol>
+      </section>
+
+      <div id="salesforce-mount" aria-label="Enhanced Web Chat mount point"></div>
+    </main>
+
+    <script type="module" src="agent-host.js"></script>
+  </body>
+</html>
