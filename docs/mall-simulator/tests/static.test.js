@@ -69,3 +69,15 @@ test("waits for Salesforce readiness and clears sessions between scenarios", asy
   assert.match(parent, /resetEventId/);
   assert.match(parent, /Scenario changed; clearing the previous conversation automatically/);
 });
+
+test("opens the embedded website chat and distinguishes it from Builder Preview", async () => {
+  const [host, page] = await Promise.all(
+    ["agent-host.js", "index.html"].map((name) =>
+      readFile(resolve(simulatorDirectory, name), "utf8")
+    )
+  );
+
+  assert.match(host, /launchChat\(\{ shouldStartNewConversation: true \}\)/);
+  assert.match(host, /Agentforce Builder Preview is a separate session/);
+  assert.match(page, /Do not switch to Agentforce Builder Preview/);
+});

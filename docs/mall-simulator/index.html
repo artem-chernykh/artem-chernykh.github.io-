@@ -9,7 +9,7 @@
       content="A sandbox-only Flender Mall context simulator for ALFRED 2.0 integration testing."
     />
     <title>ALFRED 2.0 | Mall Context Simulator</title>
-    <link rel="stylesheet" href="styles.css?v=20260805.2" />
+    <link rel="stylesheet" href="styles.css?v=20260805.3" />
   </head>
   <body>
     <header class="site-header">
@@ -63,7 +63,7 @@
 
           <div class="button-row">
             <button id="send-button" class="button primary" type="button" disabled>
-              Send context event
+              Start scenario and open chat
             </button>
             <button id="reload-button" class="button secondary" type="button">
               Reset Agent host
@@ -111,10 +111,17 @@
             </div>
             <span id="host-status" class="status-chip waiting">Loading</span>
           </div>
+          <aside class="session-boundary-note" role="note">
+            <strong>Use the Agentforce chat opened inside this page.</strong>
+            <p>
+              Do not switch to Agentforce Builder Preview. Preview starts a separate
+              session and cannot inherit this website's hidden pre-chat context.
+            </p>
+          </aside>
           <iframe
             id="agent-host"
             class="agent-frame"
-            src="agent-host.html?v=20260805.2"
+            src="agent-host.html?v=20260805.3"
             title="Isolated Agentforce host"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           ></iframe>
@@ -142,6 +149,6 @@
       </p>
     </footer>
 
-    <script type="module" src="app.js?v=20260805.2"></script>
+    <script type="module" src="app.js?v=20260805.3"></script>
   </body>
 </html>

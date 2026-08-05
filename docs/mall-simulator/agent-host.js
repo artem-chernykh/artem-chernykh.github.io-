@@ -1,10 +1,10 @@
-import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.2";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.3";
 import {
   CONTEXT_EVENT_TYPE,
   READY_EVENT_TYPE,
   RESULT_EVENT_TYPE,
   validateContextEvent
-} from "./protocol.js?v=20260805.2";
+} from "./protocol.js?v=20260805.3";
 
 const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
@@ -186,10 +186,24 @@ async function applySandboxScenario(scenarioId) {
   prechatApi.setHiddenPrechatFields({
     [SALESFORCE_CONFIG.sandboxScenarioIngress.hiddenPrechatScenarioField]: scenarioId
   });
+
+  const utilApi = window.embeddedservice_bootstrap?.utilAPI;
+  if (!utilApi?.launchChat) {
+    throw new Error("The Salesforce Launch Chat API is unavailable.");
+  }
+
   activeScenarioId = scenarioId;
-  window.embeddedservice_bootstrap?.utilAPI?.showChatButton?.();
-  setAdapterState("Scenario supplied · open chat", "success-text");
-  addLog("Fixed scenario key supplied to hidden pre-chat; no trust data was sent.", "received");
+  setAdapterState("Opening website chat", "muted-text");
+  addLog(
+    "Fixed scenario key supplied to hidden pre-chat; opening this website's Agentforce chat.",
+    "received"
+  );
+  await utilApi.launchChat({ shouldStartNewConversation: true });
+  setAdapterState("Scenario applied · website chat opened", "success-text");
+  addLog(
+    "Website chat opened. Use this chat; Agentforce Builder Preview is a separate session.",
+    "received"
+  );
 }
 
 async function exchangeOpaqueContext(envelope) {

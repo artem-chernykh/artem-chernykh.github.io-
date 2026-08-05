@@ -200,6 +200,25 @@ main {
   grid-column: 1 / -1;
 }
 
+.session-boundary-note {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9a441;
+  border-left: 0.35rem solid #d9a441;
+  border-radius: 0.75rem;
+  background: #fff8e8;
+  color: #22364a;
+}
+
+.session-boundary-note strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.session-boundary-note p {
+  margin: 0;
+}
+
 .panel-heading,
 .host-header {
   display: flex;

@@ -13,6 +13,7 @@ const elements = {
   reloadButton: document.querySelector("#reload-button"),
   copyButton: document.querySelector("#copy-button"),
   payloadPreview: document.querySelector("#payload-preview"),
+  hostPanel: document.querySelector(".host-panel"),
   frame: document.querySelector("#agent-host"),
   hostStatus: document.querySelector("#host-status"),
   eventLog: document.querySelector("#event-log"),
@@ -105,7 +106,7 @@ function reloadHostFrame() {
   state.appliedScenarioId = "";
   state.resetEventId = "";
   elements.sendButton.disabled = true;
-  elements.frame.src = `agent-host.html?v=20260805.2&reset=${Date.now()}`;
+  elements.frame.src = `agent-host.html?v=20260805.3&reset=${Date.now()}`;
   setHostStatus("Loading", "waiting");
   addLog("Agent host reset after the prior Salesforce session boundary was cleared.", "info");
 }
@@ -164,6 +165,7 @@ function receiveHostMessage(event) {
     if (accepted && event.data.eventId === state.envelope?.eventId) {
       state.appliedScenarioId =
         state.envelope.scenarioId === "logout" ? "" : state.envelope.scenarioId;
+      elements.hostPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     setHostStatus(accepted ? "Accepted" : "Rejected", accepted ? "success" : "danger");
     elements.sendButton.disabled = accepted && Boolean(state.appliedScenarioId);

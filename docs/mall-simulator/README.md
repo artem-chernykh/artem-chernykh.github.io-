@@ -104,6 +104,11 @@ Messaging Session and routes to the isolated **ALFRED 2.0 Mall Demo** agent.
 That agent resolves identity, roles, language and Quote authorization from
 sandbox-locked Salesforce Custom Metadata.
 
+Submitting an accepted scenario automatically opens the Embedded Web Chat in
+this page. Enter the test utterances there. Agentforce Builder Preview is an
+independent preview session: it has no website Messaging Session and cannot
+inherit this simulator's hidden pre-chat values.
+
 This direct mode is intentionally simulation-only. A public user can inspect
 and replay its fixed keys, so it must never be interpreted as real login proof.
 
