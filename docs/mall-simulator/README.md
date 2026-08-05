@@ -97,6 +97,11 @@ launches. A resolved
 `launchChat` call means the client opened; the later Conversation Started event
 is recorded as telemetry because a user may spend time in visible pre-chat.
 
+The bootstrap also sets `restrictSessionOnMessagingChannel = true`. Salesforce
+stores anonymous Messaging state at org scope; this setting prevents the Mall
+Demo deployment from resuming a conversation that belongs to a different
+Messaging channel.
+
 ## Current IBM development sandbox connection
 
 `salesforce-config.js` contains only public coordinates for the dedicated

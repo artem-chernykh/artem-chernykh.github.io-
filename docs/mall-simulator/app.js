@@ -1,7 +1,7 @@
-import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.8";
-import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.8";
-import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.8";
-import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.8";
+import { SCENARIO_LIST } from "./demo-scenarios.js?v=20260805.9";
+import { createMessagingLifecycle } from "./messaging-lifecycle.js?v=20260805.9";
+import { buildContextEnvelope, validateContextEvent } from "./protocol.js?v=20260805.9";
+import { SALESFORCE_CONFIG } from "./salesforce-config.js?v=20260805.9";
 
 const SALESFORCE_READY_TIMEOUT_MS = 20000;
 
@@ -452,7 +452,11 @@ function initializeSalesforceAdapter() {
     try {
       window.embeddedservice_bootstrap.settings.language = config.language;
       window.embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
-      // Agentforce_Messaging is currently Web v1. Do not set v2-only inline mode here.
+      // Anonymous Messaging storage is org-wide. Never resume a conversation
+      // created by another channel (for example the former Flender_Messaging
+      // deployment) when this dedicated Mall Demo deployment starts.
+      window.embeddedservice_bootstrap.settings.restrictSessionOnMessagingChannel = true;
+      // Mall_Demo_Agentforce_Messaging is currently Web v1. Do not set v2-only inline mode here.
       window.embeddedservice_bootstrap.init(
         config.orgId,
         config.deploymentName,

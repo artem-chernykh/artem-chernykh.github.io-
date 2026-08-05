@@ -57,6 +57,10 @@ test("embeds Salesforce directly and does not render the legacy host iframe", as
   assert.match(page, /id="salesforce-mount"/);
   assert.doesNotMatch(page, /<iframe\b|agent-host\.html|id="agent-host"/i);
   assert.match(app, /embeddedservice_bootstrap\.init/);
+  assert.match(
+    app,
+    /embeddedservice_bootstrap\.settings\.restrictSessionOnMessagingChannel\s*=\s*true/
+  );
   assert.match(lifecycle, /setHiddenPrechatFields/);
   assert.match(lifecycle, /launchChat\(\)/);
   assert.doesNotMatch(app, /displayMode\s*=\s*["']inline["']/);
