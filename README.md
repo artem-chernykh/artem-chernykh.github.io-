@@ -1,3 +1,4 @@
+<!-- README -->
 # ALFRED 2.0 – Flender Mall Integration Laboratory
 
 This repository hosts a sandbox-only Flender Mall context simulator for ALFRED 2.0.
